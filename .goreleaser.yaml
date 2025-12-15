@@ -1,0 +1,200 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+project_name: sage
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: sage
+    main: ./cmd/main.go
+    binary: sage
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+
+brews:
+  - name: sage
+    repository:
+      owner: acmacalister
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/acmacalister/sage"
+    description: "SOPS + AGE secret management for GitOps workflows"
+    license: "MIT"
+    install: |
+      bin.install "sage"
+    test: |
+      system "#{bin}/sage", "--help"
+
+nfpms:
+  - id: packages
+    package_name: sage
+    vendor: acmacalister
+    homepage: "https://github.com/acmacalister/sage"
+    maintainer: "Austin Cherry <austincherry@acmacalister.com>"
+    description: "SOPS + AGE secret management for GitOps workflows"
+    license: MIT
+    formats:
+      - deb
+      - rpm
+      - apk
+    bindir: /usr/bin
+    contents:
+      - src: ./README.md
+        dst: /usr/share/doc/sage/README.md
+
+scoops:
+  - name: sage
+    repository:
+      owner: acmacalister
+      name: scoop-bucket
+      token: "{{ .Env.SCOOP_BUCKET_GITHUB_TOKEN }}"
+    homepage: "https://github.com/acmacalister/sage"
+    description: "SOPS + AGE secret management for GitOps workflows"
+    license: MIT
+
+aurs:
+  - name: sage-bin
+    homepage: "https://github.com/acmacalister/sage"
+    description: "SOPS + AGE secret management for GitOps workflows"
+    maintainers:
+      - "Austin Cherry <austincherry@acmacalister.com>"
+    license: MIT
+    private_key: "{{ .Env.AUR_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/sage-bin.git"
+    package: |-
+      install -Dm755 "./sage" "${pkgdir}/usr/bin/sage"
+      install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/sage/README.md"
+
+dockers:
+  - image_templates:
+      - "ghcr.io/acmacalister/sage:{{ .Tag }}"
+      - "ghcr.io/acmacalister/sage:v{{ .Major }}"
+      - "ghcr.io/acmacalister/sage:v{{ .Major }}.{{ .Minor }}"
+      - "ghcr.io/acmacalister/sage:latest"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--platform=linux/amd64"
+
+docker_manifests:
+  - name_template: "ghcr.io/acmacalister/sage:{{ .Tag }}"
+    image_templates:
+      - "ghcr.io/acmacalister/sage:{{ .Tag }}"
+  - name_template: "ghcr.io/acmacalister/sage:latest"
+    image_templates:
+      - "ghcr.io/acmacalister/sage:{{ .Tag }}"
+
+release:
+  github:
+    owner: acmacalister
+    name: sage
+  draft: false
+  prerelease: auto
+  name_template: "{{.ProjectName}} v{{.Version}}"
+  footer: |
+    ## Installation
+
+    ### Homebrew (macOS/Linux)
+    ```bash
+    brew install acmacalister/tap/sage
+    ```
+
+    ### Scoop (Windows)
+    ```powershell
+    scoop bucket add acmacalister https://github.com/acmacalister/scoop-bucket.git
+    scoop install sage
+    ```
+
+    ### APT (Debian/Ubuntu)
+    ```bash
+    # Download the .deb file from the release assets
+    sudo dpkg -i sage_{{.Version}}_linux_amd64.deb
+    ```
+
+    ### RPM (Fedora/RHEL)
+    ```bash
+    # Download the .rpm file from the release assets
+    sudo rpm -i sage_{{.Version}}_linux_amd64.rpm
+    ```
+
+    ### Go Install
+    ```bash
+    go install github.com/acmacalister/sage/cmd@v{{.Version}}
+    ```
+
+    ### Docker
+    ```bash
+    docker pull ghcr.io/acmacalister/sage:{{.Tag}}
+    ```
+
+announce:
+  skip: true
