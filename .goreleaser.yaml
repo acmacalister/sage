@@ -31,7 +31,8 @@ builds:
 
 archives:
   - id: default
-    format: tar.gz
+    formats:
+      - tar.gz
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
@@ -41,7 +42,8 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
     files:
       - README.md
       - LICENSE*
@@ -74,20 +76,25 @@ changelog:
     - title: Others
       order: 999
 
-brews:
+homebrew_casks:
   - name: sage
     repository:
       owner: acmacalister
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    directory: Formula
+    directory: Casks
     homepage: "https://github.com/acmacalister/sage"
     description: "SOPS + AGE secret management for GitOps workflows"
-    license: "MIT"
-    install: |
-      bin.install "sage"
-    test: |
-      system "#{bin}/sage", "--help"
+    url:
+      verified: github.com/acmacalister/sage
+    binaries:
+      - sage
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/sage"]
+          end
 
 nfpms:
   - id: packages
@@ -129,29 +136,21 @@ aurs:
       install -Dm755 "./sage" "${pkgdir}/usr/bin/sage"
       install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/sage/README.md"
 
-dockers:
-  - image_templates:
-      - "ghcr.io/acmacalister/sage:{{ .Tag }}"
-      - "ghcr.io/acmacalister/sage:v{{ .Major }}"
-      - "ghcr.io/acmacalister/sage:v{{ .Major }}.{{ .Minor }}"
-      - "ghcr.io/acmacalister/sage:latest"
+dockers_v2:
+  - images:
+      - "ghcr.io/acmacalister/sage"
+    tags:
+      - "{{ .Tag }}"
+      - "v{{ .Major }}"
+      - "v{{ .Major }}.{{ .Minor }}"
+      - "{{ if not .IsNightly }}latest{{ end }}"
     dockerfile: Dockerfile
-    build_flag_templates:
-      - "--pull"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--label=org.opencontainers.image.source={{.GitURL}}"
-      - "--platform=linux/amd64"
-
-docker_manifests:
-  - name_template: "ghcr.io/acmacalister/sage:{{ .Tag }}"
-    image_templates:
-      - "ghcr.io/acmacalister/sage:{{ .Tag }}"
-  - name_template: "ghcr.io/acmacalister/sage:latest"
-    image_templates:
-      - "ghcr.io/acmacalister/sage:{{ .Tag }}"
+    labels:
+      "org.opencontainers.image.created": "{{ .Date }}"
+      "org.opencontainers.image.title": "{{ .ProjectName }}"
+      "org.opencontainers.image.revision": "{{ .FullCommit }}"
+      "org.opencontainers.image.version": "{{ .Version }}"
+      "org.opencontainers.image.source": "{{ .GitURL }}"
 
 release:
   github:
@@ -165,7 +164,8 @@ release:
 
     ### Homebrew (macOS/Linux)
     ```bash
-    brew install acmacalister/tap/sage
+    brew tap acmacalister/tap
+    brew install --cask sage
     ```
 
     ### Scoop (Windows)

@@ -18,7 +18,8 @@ A unified CLI tool for managing age encryption keys and SOPS-encrypted secrets a
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew install acmacalister/tap/sage
+brew tap acmacalister/tap
+brew install --cask sage
 ```
 
 ### Scoop (Windows)
